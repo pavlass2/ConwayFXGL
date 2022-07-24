@@ -1,0 +1,8 @@
+/* NOT USED */
+.conway-button {
+    -fx-background-color: #000000;
+}
+
+.conway-button:hover {
+    -fx-background-color:blue;
+}
