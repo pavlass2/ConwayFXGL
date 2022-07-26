@@ -10,7 +10,7 @@ public class PresetLoader {
     public PresetLoader() {
         presets.add(new EmptyPreset());
         presets.add(new GliderPreset());
-        presets.add(new DynamicPreset());
+        //presets.add(new DynamicPreset());
     }
     public List<Preset> getPresets() {
         return presets;
