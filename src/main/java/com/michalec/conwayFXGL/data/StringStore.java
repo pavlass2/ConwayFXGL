@@ -8,7 +8,7 @@ public interface StringStore {
     // GUI
     String BTN_SAVE_PRESET = "Save as preset";
     String FLCR_SAVE_PRESET = "Save as preset";
-    String FLCR_LOAD_PRESET = "Load preset";
+    String LOAD_PRESET = "Load preset";
     String STYLE_BOTTOM_HBOX = "-fx-background-color: #000000;";
 
 }

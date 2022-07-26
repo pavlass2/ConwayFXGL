@@ -142,6 +142,7 @@ public class World {
                 field.setAlive(history.get(0).contains(field.getCoordinates()));
             }
         }
+        history = new ArrayList<>();
     }
 }
 

@@ -18,9 +18,12 @@ import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
 import org.apache.commons.csv.CSVFormat;
@@ -28,15 +31,14 @@ import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static com.almasb.fxgl.dsl.FXGL.*;
 import static com.almasb.fxgl.dsl.FXGLForKtKt.getWorldProperties;
 import static com.michalec.conwayFXGL.data.Constant.*;
 import static com.michalec.conwayFXGL.data.StringStore.*;
+import static com.michalec.conwayFXGL.valueObject.Mode.PAUSE;
+import static com.michalec.conwayFXGL.valueObject.Mode.RUN;
 
 public class Main extends GameApplication {
     //region Fields declaration
@@ -44,6 +46,11 @@ public class Main extends GameApplication {
     TimerAction mainTimer = null;
     PresetLoader presetLoader = new PresetLoader();;
     Logger logger = Logger.get(Main.class);
+    /**
+     * Duration of time between game updates. The higher number, the slower game.
+     * 1 = 1 Update every each second, 0.5 = 1 update every half a second.
+     */
+    double gameSpeed = DEFAULT_GAME_SPEED;
     //endregion
 
     //region Components declaration
@@ -52,13 +59,15 @@ public class Main extends GameApplication {
     ComboBox<Preset> cmbxPresetLoader;
     FileChooser flCrSaveCustomPreset = new FileChooser();
     FileChooser flCrLoadCustomPreset = new FileChooser();
+    Label lblSpeedValue;
+    Slider sldrGameSpeed;
     //endregion
 
     //region Events declaration
     EventHandler<ActionEvent> runModeHandler = event -> runMode();
     EventHandler<ActionEvent> setupModeHandler = event -> setupMode();
     EventHandler<ActionEvent> loadPreset = event -> {
-        if (cmbxPresetLoader.getValue()  != null && cmbxPresetLoader.getValue() instanceof Preset) {
+        if (cmbxPresetLoader.getValue()  != null) {
             if (cmbxPresetLoader.getValue() instanceof DynamicPreset) {
                 DynamicPreset dynamicPreset = (DynamicPreset)cmbxPresetLoader.getValue();
                 File chosenFile = flCrLoadCustomPreset.showOpenDialog(FXGL.getPrimaryStage());
@@ -112,10 +121,9 @@ public class Main extends GameApplication {
                         return;
                     }
                     // TODO Combobox zustane v pozici Load
-                    // TODO Myslim, ze nelze ulozit spustenou hru, to bude chtit doresit, ale mozna tu bude jednodussi rest v ramci krokovani
                 }
 
-            world.setCurrentPreset((Preset) cmbxPresetLoader.getValue());
+            world.setCurrentPreset(cmbxPresetLoader.getValue());
             world.reset();
         }
     };
@@ -138,13 +146,32 @@ public class Main extends GameApplication {
             throw new RuntimeException(e);
         }
     };
+    EventHandler<MouseEvent> changeSpeed = event -> {
+        gameSpeed = 1 - sldrGameSpeed.getValue() / 10;
+        lblSpeedValue.setText(String.format("%.0f", sldrGameSpeed.getValue()));
+        if (gameSpeed == 0) {
+            gameSpeed = 0.01;
+        } else if (gameSpeed == 1) {
+            pauseMode();
+            return;
+        }
+
+        if (getWorldProperties().getValue(MODE).equals(PAUSE)) {
+            unPause();
+        }
+
+        if (getWorldProperties().getValue(MODE).equals(RUN)) {
+            mainTimer.expire();
+            mainTimer = getGameTimer().runAtInterval(() -> world.update(), Duration.seconds(gameSpeed));
+        }
+    };
     //endregion
 
     //region Private methods
     void runMode() {
 
-        mainTimer = getGameTimer().runAtInterval(() -> world.update(), Duration.seconds(0.25));
-        getWorldProperties().setValue(MODE, Mode.RUN);
+        mainTimer = getGameTimer().runAtInterval(() -> world.update(), Duration.seconds(gameSpeed));
+        getWorldProperties().setValue(MODE, RUN);
 
         btnChangeMode.setText("Reset");
         btnChangeMode.setOnAction(setupModeHandler);
@@ -168,6 +195,16 @@ public class Main extends GameApplication {
         world.setCurrentPreset((Preset) cmbxPresetLoader.getValue());
         world.resetToStartState();
     }
+
+    void pauseMode() { //TODO Udelej cudliky na pauzovani a krkovoani
+        mainTimer.expire();
+        getWorldProperties().setValue(MODE, PAUSE);
+    }
+
+    void unPause() {
+        mainTimer = getGameTimer().runAtInterval(() -> world.update(), Duration.seconds(gameSpeed));
+        getWorldProperties().setValue(MODE, RUN);
+    }
     void prepareGUI() {
         btnChangeMode = new FXGLButton();
         HBox hbox = new HBox(btnChangeMode);
@@ -184,10 +221,62 @@ public class Main extends GameApplication {
         flCrSaveCustomPreset.setTitle(FLCR_SAVE_PRESET);
         flCrSaveCustomPreset.setInitialFileName(DEFAULT_PRESET_FILE_NAME);
 
-        flCrLoadCustomPreset.setTitle(FLCR_LOAD_PRESET);
+        flCrLoadCustomPreset.setTitle(LOAD_PRESET);
         flCrLoadCustomPreset.setInitialFileName(DEFAULT_PRESET_FILE_NAME);
 
-        HBox hboxMain = new HBox(hbox, hbox2, cmbxPresetLoader);
+
+        Label lblSpeedDescription = new Label("Game speed: ");
+        lblSpeedValue = new Label("5");
+        lblSpeedValue.setAlignment(Pos.CENTER_RIGHT);
+        HBox hboxLabelSpeed = new HBox(lblSpeedDescription, lblSpeedValue);
+        hboxLabelSpeed.setAlignment(Pos.CENTER);
+
+        sldrGameSpeed = new Slider(0, 10, 5);
+  //      sldrGameSpeed.setOrientation(Orientation.HORIZONTAL);
+//        sldrGameSpeed.setShowTickMarks(true);
+  //      sldrGameSpeed.setShowTickLabels(true);
+       // sldrGameSpeed.setMajorTickUnit(10);
+        //sldrGameSpeed.setBlockIncrement(1);
+        //sldrGameSpeed.setSnapToTicks(true);
+     //   sldrGameSpeed.setMinorTickCount(1);
+
+        sldrGameSpeed.setBlockIncrement(1);
+        sldrGameSpeed.setMajorTickUnit(1);
+        sldrGameSpeed.setMinorTickCount(0);
+        //sldrGameSpeed.setShowTickLabels(true);
+        sldrGameSpeed.setSnapToTicks(true);
+
+
+//        sldrGameSpeed.valueProperty().addListener(new ChangeListener<Number>() {
+//            @Override
+//            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
+//                gameSpeed = newValue.doubleValue();
+//                lblSpeedValue.setText(Double.toString(gameSpeed));
+//                if (getWorldProperties().getValue(MODE).equals(RUN)) {
+//                    mainTimer.expire();
+//                    mainTimer = getGameTimer().runAtInterval(() -> world.update(), Duration.seconds(gameSpeed));
+//                }
+//            }
+//        });
+
+        sldrGameSpeed.setOnMouseReleased(changeSpeed);
+
+
+        VBox vBoxGameSpeed = new VBox(hboxLabelSpeed, sldrGameSpeed);
+        vBoxGameSpeed.setAlignment(Pos.CENTER);
+
+        MenuItem mniSaveAsPreset = new MenuItem(BTN_SAVE_PRESET);
+        mniSaveAsPreset.setOnAction(savePreset);
+
+        MenuItem mniLoadPreset = new MenuItem(LOAD_PRESET);
+        mniLoadPreset.setOnAction(loadPreset);
+
+        Menu menu = new Menu("Presets");
+        menu.getItems().addAll(mniSaveAsPreset, new SeparatorMenuItem(), mniLoadPreset);
+        MenuBar menuBar = new MenuBar();
+        menuBar.getMenus().add(0, menu);
+
+        HBox hboxMain = new HBox(hbox, hbox2, cmbxPresetLoader, vBoxGameSpeed, menuBar);
         hboxMain.setSpacing(10);
         hboxMain.setTranslateY(1005);
         FXGL.addUINode(hboxMain);
