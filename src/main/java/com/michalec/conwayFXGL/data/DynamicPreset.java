@@ -7,13 +7,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DynamicPreset extends Preset {
+    String name;
     List<Point2D> fieldsAlive = new ArrayList<>();
-    public DynamicPreset() {
-
+    public DynamicPreset(String name) {
+        this.name = name;
     }
     @Override
     public String getName() {
-        return "Load preset from a file";
+        return name;
     }
 
     @Override
