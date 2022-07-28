@@ -21,8 +21,8 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.InputEvent;
 import javafx.scene.input.KeyCode;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -56,13 +56,10 @@ public class Main extends GameApplication {
     double gameSpeed = DEFAULT_GAME_SPEED;
     ImageView imgViewPlay;
     ImageView imgViewPause;
-//    ImageView imgViewStepBackward;
-//    ImageView imgViewStepForward;
     //endregion
 
     //region Components declaration
     Button btnPlayPause;
-    //TODO Stepbackward je aktivni pri behu
     Button btnStepBackward;
     Button btnStepForward;
     Button btnReset;
@@ -153,7 +150,7 @@ public class Main extends GameApplication {
             throw new RuntimeException(e);
         }
     };
-    EventHandler<MouseEvent> changeSpeed = event -> {
+    EventHandler<InputEvent> changeSpeed = event -> {
         gameSpeed = 1 - sldrGameSpeed.getValue() / 10;
         lblSpeedValue.setText(String.format("%.0f", sldrGameSpeed.getValue()));
         if (gameSpeed == 0) {
@@ -162,13 +159,6 @@ public class Main extends GameApplication {
             pause();
             return;
         }
-        //TODO Snizeni rychlosti hry na 0 pauzuje hru, jeji opetovne zvyseni uz ale hru nespusti,
-        // nasledujici kod ji spoustel, problem je, ze v pripade pauzy zaroven jakakoli uprava rychlosti hry hru opet spusti
-        // Dale pokud je hra spustena kliknutim na tlacitko play kdyz je nastavena rychlosti 0, hra sse spusti
-        // Mozna bude lepsi rychlost 0 uplne zrusit
-//        if (getWorldProperties().getValue(MODE).equals(PAUSE)) {
-//            unPause();
-//        }
 
         if (getWorldProperties().getValue(MODE).equals(RUN)) {
             mainTimer.expire();
@@ -189,6 +179,7 @@ public class Main extends GameApplication {
         }
 
         btnReset.setDisable(false);
+        btnStepBackward.setDisable(false);
     };
     //endregion
 
@@ -198,7 +189,7 @@ public class Main extends GameApplication {
 
         int moveNumber = world.getCurrentMoveNumber();
         lbl_moveNumber_val.setText(Integer.toString(moveNumber));
-        btnStepBackward.setDisable(moveNumber < 1);
+        //btnStepBackward.setDisable(moveNumber < 1);
     }
     void runMode() {
 
@@ -213,6 +204,7 @@ public class Main extends GameApplication {
         btnPlayPause.setAccessibleHelp("Pause");
         btnPlayPause.setTooltip(ttpPause);
 
+        btnStepBackward.setDisable(true);
         btnStepForward.setDisable(true);
     }
     void setupMode() {
@@ -296,12 +288,13 @@ public class Main extends GameApplication {
         HBox hboxLabelSpeed = new HBox(lblSpeedDescription, lblSpeedValue);
         hboxLabelSpeed.setAlignment(Pos.CENTER);
 
-        sldrGameSpeed = new Slider(0, 10, 5);
+        sldrGameSpeed = new Slider(1, 10, 5);
         sldrGameSpeed.setBlockIncrement(1);
         sldrGameSpeed.setMajorTickUnit(1);
         sldrGameSpeed.setMinorTickCount(0);
         sldrGameSpeed.setSnapToTicks(true);
         sldrGameSpeed.setOnMouseReleased(changeSpeed);
+        sldrGameSpeed.setOnKeyReleased(changeSpeed);
 
         VBox vBoxGameSpeed = new VBox(hboxLabelSpeed, sldrGameSpeed);
         vBoxGameSpeed.setAlignment(Pos.CENTER);
