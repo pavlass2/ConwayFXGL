@@ -3,40 +3,35 @@ package com.michalec.conwayFXGL;
 import com.almasb.fxgl.app.GameApplication;
 import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.dsl.FXGL;
+import com.almasb.fxgl.input.InputModifier;
 import com.almasb.fxgl.input.UserAction;
 import com.almasb.fxgl.logging.Logger;
 import com.almasb.fxgl.time.TimerAction;
 import com.michalec.conwayFXGL.data.DynamicPreset;
+import com.michalec.conwayFXGL.data.FilesystemDataProvider;
 import com.michalec.conwayFXGL.data.PresetLoader;
 import com.michalec.conwayFXGL.data.StringStore;
-import com.michalec.conwayFXGL.entity.DataMalformedException;
 import com.michalec.conwayFXGL.entity.World;
-import com.michalec.conwayFXGL.valueObject.CsvHeader;
 import com.michalec.conwayFXGL.valueObject.Mode;
 import com.michalec.conwayFXGL.valueObject.Preset;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
-import javafx.geometry.Point2D;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.InputEvent;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.stage.FileChooser;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 import javafx.util.Duration;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FilenameUtils;
 
-import java.io.*;
 import java.util.Map;
 
-import static com.almasb.fxgl.dsl.FXGL.getGameTimer;
-import static com.almasb.fxgl.dsl.FXGL.getInput;
+import static com.almasb.fxgl.dsl.FXGL.*;
 import static com.almasb.fxgl.dsl.FXGLForKtKt.getWorldProperties;
 import static com.michalec.conwayFXGL.data.Constant.*;
 import static com.michalec.conwayFXGL.data.StringStore.*;
@@ -45,112 +40,55 @@ import static com.michalec.conwayFXGL.valueObject.Mode.*;
 
 public class Main extends GameApplication {
     //region Fields declaration
-    World world;
-    TimerAction mainTimer = null;
-    PresetLoader presetLoader = new PresetLoader();
-    Logger logger = Logger.get(Main.class);
+    private World world;
+    private TimerAction mainTimer = null;
+    private PresetLoader presetLoader = new PresetLoader();
+    private Logger logger = Logger.get(Main.class);
     /**
      * Duration of time between game updates. The higher number, the slower game.
      * 1 = 1 Update every each second, 0.5 = 1 update every half a second.
      */
-    double gameSpeed = DEFAULT_GAME_SPEED;
-    ImageView imgViewPlay;
-    ImageView imgViewPause;
+    private double gameSpeed = DEFAULT_GAME_SPEED;
+    private ImageView imgViewPlay;
+    private ImageView imgViewPause;
     //endregion
 
     //region Components declaration
-    Button btnPlayPause;
-    Button btnStepBackward;
-    Button btnStepForward;
-    Button btnReset;
-    FileChooser flCrSaveCustomPreset = new FileChooser();
-    FileChooser flCrLoadCustomPreset = new FileChooser();
-    Label lblSpeedValue;
-    Label lbl_moveNumber_val;
-    Slider sldrGameSpeed;
-    Menu mnu_preset;
-    Tooltip ttpStart;
-    Tooltip ttpPause;
-    Tooltip ttpUnpause;
+    private Button btnPlayPause;
+    private Button btnStepBackward;
+    private Button btnStepForward;
+    private Button btnReset;
+    private Label lblSpeedValue;
+    private Label lbl_moveNumber_val;
+    private Slider sldrGameSpeed;
+    private Menu mnu_preset;
+    private Tooltip ttpStart;
+    private Tooltip ttpPause;
+    private Tooltip ttpUnpause;
     //endregion
 
     //region Events declaration
-    EventHandler<ActionEvent> runModeHandler = event -> runMode();
-    EventHandler<ActionEvent> setupModeHandler = event -> setupMode();
-    EventHandler<ActionEvent> loadPresetFromFile = event -> {
-
-        File chosenFile = flCrLoadCustomPreset.showOpenDialog(FXGL.getPrimaryStage());
-        if (chosenFile ==  null) {
-            logger.warning("No files were chosen.");
+    private EventHandler<ActionEvent> runModeHandler = event -> runMode();
+    private EventHandler<ActionEvent> setupModeHandler = event -> setupMode();
+    private EventHandler<ActionEvent> loadPresetFromFile = event -> {
+        DynamicPreset dynamicPreset = FilesystemDataProvider.loadFile();
+        if (dynamicPreset == null) {
             return;
         }
-        try {
-            DynamicPreset dynamicPreset = new DynamicPreset(chosenFile.getName());
-            Reader reader = new FileReader(chosenFile);
-            Iterable<CSVRecord> records = CSVFormat.Builder.create().setHeader(CsvHeader.x.name(), CsvHeader.y.name()).build().parse(reader);
-
-            for (CSVRecord record : records) {
-                if (!record.isConsistent()) {
-                    throw new DataMalformedException(record.getRecordNumber(), record.toString(), chosenFile.getName());
-                }
-                String strX = record.get(CsvHeader.x.name());
-                String strY = record.get(CsvHeader.y.name());
-
-                if (strX.equals(CsvHeader.x.name()) || strY.equals(CsvHeader.y.name())) {
-                    // Probably just header, ignore this record.
-                    continue;
-                }
-
-                Double dblX = Double.valueOf(strX);
-                Double dblY = Double.valueOf(strY);
-
-                if (dblX < 0 || dblX > 990 || dblX % 10 != 0) {
-                    throw new DataMalformedException(record.getRecordNumber(), dblX.toString(), chosenFile.getName());
-                }
-                if (dblY < 0 || dblY > 990 || dblY % 10 != 0) {
-                    throw new DataMalformedException(record.getRecordNumber(), dblY.toString(), chosenFile.getName());
-                }
-
-                dynamicPreset.addAliveFieldCoordinates(new Point2D(dblX, dblY));
-            }
+        addMenuItemTo_mnu_preset(dynamicPreset);
+        setupMode();
+        world.setCurrentPreset(dynamicPreset);
+        world.reset();
+    };
+    private EventHandler<ActionEvent> savePreset = event -> {
+        String filename = FilesystemDataProvider.savePreset(world.getStartingAliveFields());
+        if (filename != null) {
+            DynamicPreset dynamicPreset = new DynamicPreset(filename);
+            dynamicPreset.setAliveFieldCoordinates(world.getStartingAliveFields());
             addMenuItemTo_mnu_preset(dynamicPreset);
-            setupMode();
-            world.setCurrentPreset(dynamicPreset);
-            world.reset();
-        } catch (FileNotFoundException e) {
-            logger.warning("File " + chosenFile.getName() + " not found.");
-            e.printStackTrace();
-        } catch (IOException e) {
-            logger.warning("An exception was thrown during reading file " + chosenFile.getName() + ".");
-            e.printStackTrace();
-        } catch (DataMalformedException e) {
-            logger.warning("Some values in file " + chosenFile.getName() + " are malformed or invalid coordinates. Record number:" + e.getRecordNumber() + ", malformed data: " + e.getMalformedData() + ", file name: " + e.getFileName());
-            e.printStackTrace();
-        } catch (NumberFormatException e) {
-            logger.warning("Some values in file " + chosenFile.getName() + " are not correctly formatted numbers.");
-            e.printStackTrace();
         }
     };
-    EventHandler<ActionEvent> savePreset = event -> {
-        File chosenFile = flCrSaveCustomPreset.showSaveDialog(FXGL.getPrimaryStage());
-        if (chosenFile == null) {
-            return;
-        }
-
-        FileWriter out;
-        try {
-            out = new FileWriter(chosenFile);
-            CSVPrinter printer = CSVFormat.Builder.create().setHeader(CsvHeader.x.name(), CsvHeader.y.name()).build().print(out);
-
-            for (Point2D point2D : world.getStartingAliveFields()) {
-                printer.printRecord((int)point2D.getX(), (int)point2D.getY());
-            }
-            printer.close(true);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    };
-    EventHandler<InputEvent> changeSpeed = event -> {
+    private EventHandler<InputEvent> changeSpeed = event -> {
         gameSpeed = 1 - sldrGameSpeed.getValue() / 10;
         lblSpeedValue.setText(String.format("%.0f", sldrGameSpeed.getValue()));
         if (gameSpeed == 0) {
@@ -165,14 +103,14 @@ public class Main extends GameApplication {
             mainTimer = getGameTimer().runAtInterval(this::processNextMove, Duration.seconds(gameSpeed));
         }
     };
-    EventHandler<ActionEvent> stepBackward = event -> {
+    private EventHandler<ActionEvent> stepBackward = event -> {
         world.backward();
 
         int moveNumber = world.getCurrentMoveNumber();
         lbl_moveNumber_val.setText(Integer.toString(moveNumber));
         btnStepBackward.setDisable(moveNumber < 1);
     };
-    EventHandler<ActionEvent> stepForward = event -> {
+    private EventHandler<ActionEvent> stepForward = event -> {
         processNextMove();
         if (getWorldProperties().getValue(MODE).equals(SETUP)) {
             pause();
@@ -184,14 +122,13 @@ public class Main extends GameApplication {
     //endregion
 
     //region Private methods
-    void processNextMove() {
+    private void processNextMove() {
         world.update();
 
         int moveNumber = world.getCurrentMoveNumber();
         lbl_moveNumber_val.setText(Integer.toString(moveNumber));
-        //btnStepBackward.setDisable(moveNumber < 1);
     }
-    void runMode() {
+    private void runMode() {
 
         mainTimer = getGameTimer().runAtInterval(this::processNextMove, Duration.seconds(gameSpeed));
         getWorldProperties().setValue(MODE, RUN);
@@ -207,7 +144,7 @@ public class Main extends GameApplication {
         btnStepBackward.setDisable(true);
         btnStepForward.setDisable(true);
     }
-    void setupMode() {
+    private void setupMode() {
         if (mainTimer != null) {
             mainTimer.expire();
         }
@@ -226,7 +163,7 @@ public class Main extends GameApplication {
         world.resetToStartState();
     }
 
-    void pause() {
+    private void pause() {
         if (mainTimer != null && !mainTimer.isExpired()) {
             mainTimer.expire();
         }
@@ -239,7 +176,7 @@ public class Main extends GameApplication {
         btnStepForward.setDisable(false);
     }
 
-    void unPause() {
+    private void unPause() {
         mainTimer = getGameTimer().runAtInterval(this::processNextMove, Duration.seconds(gameSpeed));
         getWorldProperties().setValue(MODE, RUN);
         btnPlayPause.setGraphic(imgViewPause);
@@ -248,7 +185,7 @@ public class Main extends GameApplication {
         btnStepBackward.setDisable(true);
         btnStepForward.setDisable(true);
     }
-    void prepareGUI() {
+    private void prepareGUI() {
         ImageView imgViewStepBackward = new ImageView(new Image("assets/ui/img/backward.png"));
         ImageView imgViewStepForward = new ImageView(new Image("assets/ui/img/forward.png"));
         ImageView imgViewReset = new ImageView(new Image("assets/ui/img/reset.png"));
@@ -274,12 +211,6 @@ public class Main extends GameApplication {
         lbl_moveNumber_val = new Label();
         HBox hbox_MoveNumber = new HBox(lbl_moveNumber_desc, lbl_moveNumber_val);
 
-
-        flCrSaveCustomPreset.setTitle(FLCR_SAVE_PRESET);
-        flCrSaveCustomPreset.setInitialFileName(DEFAULT_PRESET_FILE_NAME);
-
-        flCrLoadCustomPreset.setTitle(LOAD_PRESET);
-        flCrLoadCustomPreset.setInitialFileName(DEFAULT_PRESET_FILE_NAME);
 
 
         Label lblSpeedDescription = new Label("Game speed: ");
@@ -309,7 +240,7 @@ public class Main extends GameApplication {
         ttpUnpause = new Tooltip(UNPAUSE);
 
 
-        MenuItem mniSaveAsPreset = new MenuItem(BTN_SAVE_PRESET);
+        MenuItem mniSaveAsPreset = new MenuItem(SAVE_AS_PRESET);
         MenuItem mniLoadPreset = new MenuItem(LOAD_PRESET);
 
         mniSaveAsPreset.setOnAction(savePreset);
@@ -326,6 +257,7 @@ public class Main extends GameApplication {
         HBox hboxMain = new HBox(btnReset, vBoxGameSpeed, hbox_MoveNumber, btnStepBackward, btnPlayPause, btnStepForward, menuBar);
         hboxMain.setSpacing(10);
         hboxMain.setTranslateY(1005);
+        hboxMain.setBackground(new Background(new BackgroundFill((Color.WHITE), CornerRadii.EMPTY, Insets.EMPTY)));
         FXGL.addUINode(hboxMain);
     }
 
@@ -354,6 +286,7 @@ public class Main extends GameApplication {
     }
     @Override
     protected void initGame() {
+        ViewportManager viewportManager = new ViewportManager(getGameScene().getViewport());
         prepareGUI();
 
         world = new World(WORLD_SIZE, FIELD_SIZE);
@@ -369,7 +302,105 @@ public class Main extends GameApplication {
                 }
             }
         }, KeyCode.SPACE);
+
+        getInput().addAction(new UserAction("zoom_out") {
+            @Override
+            protected void onActionBegin() {
+                viewportManager.zoomOut();
+            }
+        }, KeyCode.Q);
+        getInput().addAction(new UserAction("zoom_in") {
+            @Override
+            protected void onActionBegin() {
+                viewportManager.zoomIn();
+            }
+        }, KeyCode.E);
+        getInput().addAction(new UserAction("zoom_out_mouse") {
+            @Override
+            protected void onAction() {
+                viewportManager.zoomOut();
+            }
+        }, MouseButton.SECONDARY, InputModifier.CTRL);
+        getInput().addAction(new UserAction("zoom_in_mouse") {
+            @Override
+            protected void onAction() {
+                viewportManager.zoomIn();
+            }
+        }, MouseButton.PRIMARY, InputModifier.CTRL);
+        getInput().addAction(new UserAction("zoom_out_mouse_wheel") {//TODO TEST
+            @Override
+            protected void onAction() {
+                viewportManager.zoomOut();
+            }
+        }, MouseButton.BACK);
+        getInput().addAction(new UserAction("zoom_in_mouse_wheel") {//TODO TEST
+            @Override
+            protected void onAction() {
+                viewportManager.zoomIn();
+            }
+        }, MouseButton.FORWARD);
+
+        getInput().addAction(new UserAction("up") {
+            TimerAction movement = null;
+            @Override
+            protected void onActionBegin() {
+                viewportManager.up();
+                movement = getGameTimer().runAtInterval(() -> viewportManager.up(), Duration.seconds(CAMERA_MOVEMENT_DURATION));
+            }
+            @Override
+            protected void onActionEnd() {
+                if (movement != null) {
+                    movement.expire();
+                }
+            }
+        }, KeyCode.W);
+
+        getInput().addAction(new UserAction("left") {
+            TimerAction movement = null;
+            @Override
+            protected void onActionBegin() {
+                viewportManager.left();
+                movement = getGameTimer().runAtInterval(() -> viewportManager.left(), Duration.seconds(CAMERA_MOVEMENT_DURATION));
+            }
+            @Override
+            protected void onActionEnd() {
+                if (movement != null) {
+                    movement.expire();
+                }
+            }
+        }, KeyCode.A);
+
+        getInput().addAction(new UserAction("down") {
+            TimerAction movement = null;
+            @Override
+            protected void onActionBegin() {
+                viewportManager.down();
+                movement = getGameTimer().runAtInterval(() -> viewportManager.down(), Duration.seconds(CAMERA_MOVEMENT_DURATION));
+            }
+            @Override
+            protected void onActionEnd() {
+                if (movement != null) {
+                    movement.expire();
+                }
+            }
+        }, KeyCode.S);
+
+        getInput().addAction(new UserAction("right") {
+            TimerAction movement = null;
+            @Override
+            protected void onActionBegin() {
+                viewportManager.right();
+                movement = getGameTimer().runAtInterval(() -> viewportManager.right(), Duration.seconds(CAMERA_MOVEMENT_DURATION));
+            }
+            @Override
+            protected void onActionEnd() {
+                if (movement != null) {
+                    movement.expire();
+                }
+            }
+        }, KeyCode.D);
     }
+
     @Override
     protected void initGameVars(Map<String, Object> vars) {
         vars.put(MODE, Mode.SETUP);

@@ -24,4 +24,7 @@ public class DynamicPreset extends Preset {
     public void addAliveFieldCoordinates(Point2D coordinates) {
         fieldsAlive.add(coordinates);
     }
+    public void setAliveFieldCoordinates(List<Point2D> coordinatesList) {
+        fieldsAlive = coordinatesList;
+    }
 }

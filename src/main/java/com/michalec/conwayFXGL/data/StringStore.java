@@ -6,8 +6,7 @@ public interface StringStore {
     String DEFAULT_PRESET_FILE_NAME = "Preset.csv";
 
     // GUI
-    String BTN_SAVE_PRESET = "Save as preset";
-    String FLCR_SAVE_PRESET = "Save as preset";
+    String SAVE_AS_PRESET = "Save as preset";
     String LOAD_PRESET = "Load preset";
     String PLAY_CONWAYS_GAME_OF_LIFE = "Play Conway's Game of Life";
     String PAUSE = "Pause";
